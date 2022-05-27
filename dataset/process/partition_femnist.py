@@ -21,9 +21,9 @@ def func(split):
         cnt += 1
     print(split, 'number of clients', len(client_dict), len(a), 'number of rows', cnt)
 
-    for i in range(3597):
-        if str(i) not in a:
-            print(i, 'not in data')
+    for client_id, rows in client_dict.items():
+        if len(rows) < 21:
+            print(client_id, "less than 20 samples")
 
     return list(client_dict.keys())
 

@@ -95,6 +95,7 @@ class DataPartitioner(object):
             self.trace_partition(data_map_file)
         else:
             self.uniform_partition(num_clients=num_clients)
+            # self.uniform_partition(num_clients=1)
 
     def uniform_partition(self, num_clients):
         # random partition

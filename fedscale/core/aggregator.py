@@ -18,7 +18,7 @@ import pickle
 import grpc
 from concurrent import futures
 
-MAX_MESSAGE_LENGTH = 1*1024*1024*1024 # 1GB
+MAX_MESSAGE_LENGTH = 2*1024*1024*1024 # 1GB
 
 class Aggregator(job_api_pb2_grpc.JobServiceServicer):
     """This centralized aggregator collects training/testing feedbacks from executors"""
@@ -309,19 +309,16 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
                 param.data = (torch.from_numpy(results['update_weight'][idx]).to(device=device))
         else:
             for idx, param in enumerate(self.model_state_dict.values()):
-                tmp = torch.from_numpy(results['update_weight'][idx]).to(device=device)-param.data
-                tmp = tmp / float(self.model_in_update)
-                param.data += tmp.to(dtype=param.data.dtype)
-                # param.data += ((torch.from_numpy(results['update_weight'][idx]).to(device=device)) - param.data) / float(self.model_in_update)
+                param.data += (torch.from_numpy(results['update_weight'][idx]).to(device=device))
 
         # fed-avg here
         # self.model_in_update is the number of clients that finish training in this round
         # self.tasks_round is the number of clients here
-        # if self.model_in_update == self.tasks_round:
-        #     for idx, param in enumerate(self.model_state_dict.values()):
-        #         param.data = (param.data/float(self.tasks_round)).to(dtype=param.data.dtype)
-        #
-        #     self.model.load_state_dict(self.model_state_dict)
+        if self.model_in_update == self.tasks_round:
+            for idx, param in enumerate(self.model_state_dict.values()):
+                param.data = (param.data / float(self.tasks_round)).to(dtype=param.data.dtype)
+
+            self.model.load_state_dict(self.model_state_dict)
 
         self.update_lock.release()
 
@@ -607,9 +604,6 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
     def event_monitor(self):
         logging.info("Start monitoring events ...")
 
-        cnt_nth = 0
-        isDispatch = False
-
         while True:
             # Broadcast events to clients
             if len(self.broadcast_events_queue) > 0:
@@ -617,13 +611,12 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
 
                 if current_event == events.UPDATE_MODEL:
                     self.dispatch_client_events(current_event)
-                    # start to count
-                    isDispatch = True
-                    cnt_nth = 0
 
                 elif current_event == events.MODEL_TEST:
                     # 仅由一个client进行测试，并且进行的是全量的测试
+                    logging.info(f"Dispatch test tasks to clients: {self.sampled_executors}")
                     self.dispatch_client_events(current_event)
+                    # self.dispatch_client_events(current_event, ["1"])
 
                 elif current_event == events.START_ROUND:
                     self.dispatch_client_events(events.CLIENT_TRAIN)
@@ -638,30 +631,19 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
                 # logging.info("Receive event {} from client {}".format(current_event, client_id))
                 if current_event == events.UPLOAD_MODEL:
                     self.client_completion_handler(self.deserialize_response(data))
-                    # logging.info("Currently {}/{} clients has finished training".format(len(self.stats_util_accumulator), self.tasks_round))
+                    logging.info("Currently {}/{} clients has finished training".format(len(self.stats_util_accumulator), self.tasks_round))
                     # once receive an upload, reset the count
-                    cnt_nth = 0
-
                     if len(self.stats_util_accumulator) == self.tasks_round:
                         self.round_completion_handler()
-                        # dispatching ends
-                        isDispatch = False
 
                 elif current_event == events.MODEL_TEST:
                     self.testing_completion_handler(client_id, self.deserialize_response(data))
+                    logging.info("Collect {}/{} results in Testing".format(len(self.test_result_accumulator), len(self.executors)))
 
                 else:
                     logging.error(f"Event {current_event} is not defined")
 
-            elif isDispatch and cnt_nth >= (120./0.1):
-                # if no feedback in 120s, continue next round training
-                logging.info("Only {}/{} clients upload models and no upload in 120s, aggregate collected models now".format(len(self.stats_util_accumulator), self.tasks_round))
-                self.round_completion_handler()
-                isDispatch = False
             else:
-                # execute every 100 ms
-                if isDispatch:
-                    cnt_nth += 1
                 time.sleep(0.1)
 
 
