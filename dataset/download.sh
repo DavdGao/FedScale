@@ -41,7 +41,7 @@ speech()
         echo "Downloading Speech Commands dataset(about 2.4GB)..."
         wget -O ${DIR}/speech_commands/google_speech.tar.gz https://fedscale.eecs.umich.edu/dataset/google_speech.tar.gz
 
-        echo "Dataset downloaded, now decompressing..." 
+        echo "Dataset downloaded, now decompressing..."
         tar -xf ${DIR}/speech_commands/google_speech.tar.gz -C ${DIR}
 
         echo "Removing compressed file..."
@@ -206,18 +206,18 @@ open_images_detection()
 fi
 }
 
-reddit() 
+reddit()
 {
     if [ ! -d "${DIR}/reddit/train/" ]; 
     then
-        echo "Downloading reddit dataset(about 25G)..."   
-        wget -O ${DIR}/reddit.tar.gz https://fedscale.eecs.umich.edu/dataset/reddit.tar.gz
+#        echo "Downloading reddit dataset(about 25G)..."
+#        wget -O ${DIR}/reddit.tar.gz https://fedscale.eecs.umich.edu/dataset/reddit.tar.gz
         
         echo "Dataset downloaded, now decompressing..." 
         tar -xf ${DIR}/reddit.tar.gz -C ${DIR}
 
-        echo "Removing compressed file..."
-        rm -f ${DIR}/reddit.tar.gz
+#        echo "Removing compressed file..."
+#        rm -f ${DIR}/reddit.tar.gz
 
         echo -e "${GREEN}reddit dataset downloaded!${NC}"
     else
@@ -324,14 +324,14 @@ femnist()
 {
     if [ ! -d "${DIR}/FEMNIST/client_data_mapping/" ]; 
     then
-        echo "Downloading FEMNIST dataset(about 327M)..."   
-        wget -O ${DIR}/femnist.tar.gz https://fedscale.eecs.umich.edu/dataset/femnist.tar.gz
+#        echo "Downloading FEMNIST dataset(about 327M)..."
+#        wget -O ${DIR}/femnist.tar.gz https://fedscale.eecs.umich.edu/dataset/femnist.tar.gz
         
         echo "Dataset downloaded, now decompressing..." 
         tar -xf ${DIR}/femnist.tar.gz -C ${DIR}
 
-        echo "Removing compressed file..."
-        rm -f ${DIR}/femnist.tar.gz
+#        echo "Removing compressed file..."
+#        rm -f ${DIR}/femnist.tar.gz
 
         echo -e "${GREEN}FEMNIST dataset downloaded!${NC}"
     else

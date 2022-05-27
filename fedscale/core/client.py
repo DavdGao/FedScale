@@ -14,7 +14,7 @@ class Client(object):
     def train(self, client_data, model, conf):
 
         clientId = conf.clientId
-        logging.info(f"Start to train (CLIENT: {clientId}) ...")
+        logging.info(f"Start to train (CLIENT: {clientId}) with {len(client_data)} batchs in one epoch...")
         tokenizer, device = conf.tokenizer, conf.device
 
         model = model.to(device=device)
@@ -77,8 +77,11 @@ class Client(object):
 
         # TODO: One may hope to run fixed number of epochs, instead of iterations
         while completed_steps < conf.local_steps:
-            
+
             try:
+                if len(client_data) == 0:
+                    raise Exception("The len of client_data is 0!")
+
                 for data_pair in client_data:
 
                     if conf.task == 'nlp':
@@ -176,6 +179,7 @@ class Client(object):
                         break
 
             except Exception as ex:
+                logging.info("Catch Exception here !!!")
                 error_type = ex
                 break
 

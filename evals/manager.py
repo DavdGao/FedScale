@@ -125,11 +125,13 @@ def terminate(job_name):
 
         # _ = os.system(f"ssh {job_meta['user']}{vm_ip} 'python {current_path}/shutdown.py {job_name}'")
 
-if sys.argv[1] == 'submit' or sys.argv[1] == 'start':
-    process_cmd(sys.argv[2], False if sys.argv[1] =='submit' else True)
-elif sys.argv[1] == 'stop':
-    terminate(sys.argv[2])
-else:
-    print("Unknown cmds ...")
+
+if __name__ == '__main__':
+    if sys.argv[1] == 'submit' or sys.argv[1] == 'start':
+        process_cmd(sys.argv[2], False if sys.argv[1] =='submit' else True)
+    elif sys.argv[1] == 'stop':
+        terminate(sys.argv[2])
+    else:
+        print("Unknown cmds ...")
 
 

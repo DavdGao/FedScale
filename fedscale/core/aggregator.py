@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+import sys
+sys.path.append('/mnt/gaodawei.gdw/FedScale/')
+
 from cmath import log
 from fedscale.core import response
 from fedscale.core.fl_aggregator_libs import *
@@ -128,7 +131,7 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
 
         # initiate a server process
         self.grpc_server = grpc.server(
-            futures.ThreadPoolExecutor(max_workers=20),
+            futures.ThreadPoolExecutor(max_workers=100),
             options=[
                 ('grpc.max_send_message_length', MAX_MESSAGE_LENGTH),
                 ('grpc.max_receive_message_length', MAX_MESSAGE_LENGTH),
@@ -237,6 +240,7 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
             # 2. get the top-k completions to remove stragglers
             sortedWorkersByCompletion = sorted(range(len(completionTimes)), key=lambda k:completionTimes[k])
             top_k_index = sortedWorkersByCompletion[:num_clients_to_collect]
+            # 跑的最快的前几个client
             clients_to_run = [sampledClientsReal[k] for k in top_k_index]
 
             dummy_clients = [sampledClientsReal[k] for k in sortedWorkersByCompletion[num_clients_to_collect:]]
@@ -305,13 +309,19 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
                 param.data = (torch.from_numpy(results['update_weight'][idx]).to(device=device))
         else:
             for idx, param in enumerate(self.model_state_dict.values()):
-                param.data += (torch.from_numpy(results['update_weight'][idx]).to(device=device))
+                tmp = torch.from_numpy(results['update_weight'][idx]).to(device=device)-param.data
+                tmp = tmp / float(self.model_in_update)
+                param.data += tmp.to(dtype=param.data.dtype)
+                # param.data += ((torch.from_numpy(results['update_weight'][idx]).to(device=device)) - param.data) / float(self.model_in_update)
 
-        if self.model_in_update == self.tasks_round:
-            for idx, param in enumerate(self.model_state_dict.values()):
-                param.data = (param.data/float(self.tasks_round)).to(dtype=param.data.dtype)
-
-            self.model.load_state_dict(self.model_state_dict)
+        # fed-avg here
+        # self.model_in_update is the number of clients that finish training in this round
+        # self.tasks_round is the number of clients here
+        # if self.model_in_update == self.tasks_round:
+        #     for idx, param in enumerate(self.model_state_dict.values()):
+        #         param.data = (param.data/float(self.tasks_round)).to(dtype=param.data.dtype)
+        #
+        #     self.model.load_state_dict(self.model_state_dict)
 
         self.update_lock.release()
 
@@ -332,6 +342,7 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
             self.args.learning_rate = max(self.args.learning_rate*self.args.decay_factor, self.args.min_learning_rate)
 
         # handle the global update w/ current and last
+        # TODO: actually do nothing for fed-avg here
         self.round_weight_handler(self.last_global_model, [param.data.clone() for param in self.model.parameters()])
 
         avgUtilLastround = sum(self.stats_util_accumulator)/max(1, len(self.stats_util_accumulator))
@@ -364,6 +375,7 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
 
         # Update executors and participants
         if self.experiment_mode == events.SIMULATION_MODE:
+            # 这里保存的都是executor的id
             self.sampled_executors = list(self.individual_client_events.keys())
         else:
             self.sampled_executors = [str(c_id) for c_id in self.sampled_participants]
@@ -379,6 +391,7 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
         self.client_training_results = []
 
         if self.round >= self.args.rounds:
+            logging.info("Shutdown now!!!!")
             self.broadcast_aggregator_events(events.SHUT_DOWN)
         elif self.round % self.args.eval_interval == 0:
             self.broadcast_aggregator_events(events.UPDATE_MODEL)
@@ -418,6 +431,8 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
         self.test_result_accumulator.append(results)
 
         # Have collected all testing results
+        # TODO: only one test
+        # if len(self.test_result_accumulator) == 1:
         if len(self.test_result_accumulator) == len(self.executors):
             accumulator = self.test_result_accumulator[0]
             for i in range(1, len(self.test_result_accumulator)):
@@ -469,6 +484,7 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
     def dispatch_client_events(self, event, clients=None):
         """Issue tasks (events) to clients"""
         if clients is None:
+            # TODO： 每次是向所有的sampled_executors进行广播
             clients = self.sampled_executors
 
         for client_id in clients:
@@ -591,12 +607,22 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
     def event_monitor(self):
         logging.info("Start monitoring events ...")
 
+        cnt_nth = 0
+        isDispatch = False
+
         while True:
             # Broadcast events to clients
             if len(self.broadcast_events_queue) > 0:
                 current_event = self.broadcast_events_queue.popleft()
 
-                if current_event in (events.UPDATE_MODEL, events.MODEL_TEST):
+                if current_event == events.UPDATE_MODEL:
+                    self.dispatch_client_events(current_event)
+                    # start to count
+                    isDispatch = True
+                    cnt_nth = 0
+
+                elif current_event == events.MODEL_TEST:
+                    # 仅由一个client进行测试，并且进行的是全量的测试
                     self.dispatch_client_events(current_event)
 
                 elif current_event == events.START_ROUND:
@@ -609,20 +635,33 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
             # Handle events queued on the aggregator
             elif len(self.sever_events_queue) > 0:
                 client_id, current_event, meta, data = self.sever_events_queue.popleft()
-
+                # logging.info("Receive event {} from client {}".format(current_event, client_id))
                 if current_event == events.UPLOAD_MODEL:
                     self.client_completion_handler(self.deserialize_response(data))
+                    # logging.info("Currently {}/{} clients has finished training".format(len(self.stats_util_accumulator), self.tasks_round))
+                    # once receive an upload, reset the count
+                    cnt_nth = 0
+
                     if len(self.stats_util_accumulator) == self.tasks_round:
-                            self.round_completion_handler()
+                        self.round_completion_handler()
+                        # dispatching ends
+                        isDispatch = False
 
                 elif current_event == events.MODEL_TEST:
                     self.testing_completion_handler(client_id, self.deserialize_response(data))
 
                 else:
                     logging.error(f"Event {current_event} is not defined")
-                
+
+            elif isDispatch and cnt_nth >= (120./0.1):
+                # if no feedback in 120s, continue next round training
+                logging.info("Only {}/{} clients upload models and no upload in 120s, aggregate collected models now".format(len(self.stats_util_accumulator), self.tasks_round))
+                self.round_completion_handler()
+                isDispatch = False
             else:
                 # execute every 100 ms
+                if isDispatch:
+                    cnt_nth += 1
                 time.sleep(0.1)
 
 

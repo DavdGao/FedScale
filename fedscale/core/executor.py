@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+
+import sys
+sys.path.append('/mnt/gaodawei.gdw/FedScale/')
+
 from fedscale.core.fl_client_libs import *
 from argparse import Namespace
 import gc
@@ -100,10 +104,13 @@ class Executor(object):
         logging.info("Data partitioner starts ...")
 
         training_sets = DataPartitioner(data=train_dataset, args = self.args, numOfClass=self.args.num_class)
+        # client的数目
         training_sets.partition_data_helper(num_clients=self.args.total_worker, data_map_file=self.args.data_map_file)
 
         testing_sets = DataPartitioner(data=test_dataset, args = self.args, numOfClass=self.args.num_class, isTest=True)
+        # 代表executor的数目
         testing_sets.partition_data_helper(num_clients=self.num_executors)
+        # testing_sets.partition_data_helper(num_clients=1)
 
         logging.info("Data partitioner completes ...")
 
