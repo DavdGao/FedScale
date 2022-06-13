@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+import sys
+sys.path.append('/mnt/gaodawei.gdw/FedScale')
+
 from cmath import log
 from fedscale.core import response
 from fedscale.core.fl_aggregator_libs import *
@@ -81,6 +84,8 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
                         'gradient_policy': args.gradient_policy, 'task': args.task, 'perf': collections.OrderedDict()}
 
         self.log_writer = SummaryWriter(log_dir=logDir)
+
+        self.num_trained_samples = 0.
 
         # ======== Task specific ============
         self.imdb = None           # object detection
@@ -226,6 +231,10 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
             for client_to_run in sampled_clients:
                 client_cfg = self.client_conf.get(client_to_run, self.args)
 
+                # FederatedScope的drop_last一定为False
+                # FedScale里面也需要设置为False
+                # 根据client_id去取这个client有多少个
+
                 exe_cost = self.client_manager.getCompletionTime(client_to_run,
                                         batch_size=client_cfg.batch_size, upload_step=client_cfg.local_steps,
                                         upload_size=self.model_update_size, download_size=self.model_update_size)
@@ -313,12 +322,18 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
                 temp_list = results['update_weight'][p]
                 if isinstance(results['update_weight'][p], list):
                     temp_list = np.asarray(temp_list, dtype=np.float32)
-                self.model_weights[p].data += torch.from_numpy(temp_list).to(device=device)
+                # self.model_weights[p].data += torch.from_numpy(temp_list).to(device=device)
+                self.model_weights[p].data = (self.model_weights[p] * self.num_trained_samples + torch.from_numpy(temp_list).to(device=device)) / (self.num_trained_samples + results['trained_size'])
+                self.num_trained_samples += results['trained_size']
 
         if self.model_in_update == self.tasks_round:
-            for p in self.model_weights:
-                d_type = self.model_weights[p].data.dtype
-                self.model_weights[p].data = (self.model_weights[p]/float(self.tasks_round)).to(dtype=d_type)
+            # online fedavg
+            # for p in self.model_weights:
+            #     d_type = self.model_weights[p].data.dtype
+            #     self.model_weights[p].data = (self.model_weights[p]/float(self.tasks_round)).to(dtype=d_type)
+
+            self.num_trained_samples = 0.
+
         self.update_lock.release()
 
     def save_last_param(self):
@@ -625,6 +640,7 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
 
                 if current_event == events.UPLOAD_MODEL:
                     self.client_completion_handler(self.deserialize_response(data))
+                    logging.info("Currently receive {}/{} training msg from clients".format(len(self.stats_util_accumulator), self.tasks_round))
                     if len(self.stats_util_accumulator) == self.tasks_round:
                             self.round_completion_handler()
 

@@ -60,11 +60,12 @@ class Customized_Client(Client):
                     loss = loss.mean()
                     temp_loss = sum(loss_list)/float(len(loss_list))
                     loss_squre = sum([l**2 for l in loss_list])/float(len(loss_list))
-                    if completed_steps < len(client_data):
-                        if epoch_train_loss == 1e-4:
-                            epoch_train_loss = temp_loss
-                        else:
-                            epoch_train_loss = (1. - conf.loss_decay) * epoch_train_loss + conf.loss_decay * temp_loss
+                    # if completed_steps < len(client_data):
+                    #     if epoch_train_loss == 1e-4:
+                    #         epoch_train_loss = temp_loss
+                    #     else:
+                    #         epoch_train_loss = (1. - conf.loss_decay) * epoch_train_loss + conf.loss_decay * temp_loss
+                    epoch_train_loss = temp_loss
                     optimizer.zero_grad()
                     loss.backward()
                     torch.nn.utils.clip_grad_norm_(self.local_model.parameters(), 1)

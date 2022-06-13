@@ -169,6 +169,10 @@ def init_model():
         elif args.model == 'svm':
             from fedscale.core.utils.models import LinearSVM
             model = LinearSVM(args.input_dim, outputClass[args.data_set])
+        elif args.model == "convnet2":
+            from fedscale.core.utils.models import ConvNet2
+            logging.info("Load ConvNet2...")
+            model = ConvNet2(args.input_dim, class_num=outputClass[args.data_set])
         else:
             model = tormodels.__dict__[args.model](num_classes=outputClass[args.data_set])
 

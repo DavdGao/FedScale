@@ -37,12 +37,16 @@ class clientManager(object):
                 self.user_trace = pickle.load(fin)
             self.user_trace_keys = list(self.user_trace.keys())
 
+        # collect data from all clients
+        self.nums_client = pickle.load(
+            open('/mnt/gaodawei.gdw/FedScale/dataset/data/femnist/client_data_mapping/train_samples.pkl', 'rb'))
+
     def registerClient(self, hostId, clientId, size, speed, duration=1):
 
         uniqueId = self.getUniqueId(hostId, clientId)
         user_trace = None if self.user_trace is None else self.user_trace[self.user_trace_keys[int(clientId)%len(self.user_trace)]]
 
-        self.Clients[uniqueId] = Client(hostId, clientId, speed, user_trace)
+        self.Clients[uniqueId] = Client(hostId, clientId, speed, self.nums_client[clientId-1], user_trace)
 
         # remove clients
         if size >= self.filter_less and size <= self.filter_more:

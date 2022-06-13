@@ -1,7 +1,7 @@
 
 class Client(object):
 
-    def __init__(self, hostId, clientId, speed, traces=None):
+    def __init__(self, hostId, clientId, speed, num_samples, traces=None):
         self.hostId = hostId
         self.clientId = clientId
         self.compute_speed = speed['computation']
@@ -9,6 +9,7 @@ class Client(object):
         self.score = 0
         self.traces = traces
         self.behavior_index = 0
+        self.num_samples = num_samples
 
     def getScore(self):
         return self.score
@@ -39,7 +40,11 @@ class Client(object):
            Communication latency: communication latency = (pull + push)_update_size/bandwidth;
         """
         #return (3.0 * batch_size * num_steps/float(self.compute_speed) + model_size/float(self.bandwidth))
-        return {'computation':augmentation_factor * batch_size * upload_step*float(self.compute_speed)/1000., \
+
+        return {'computation': augmentation_factor*self.num_samples*float(self.compute_speed)/1000., \
                 'communication': (upload_size+download_size)/float(self.bandwidth)}
+
+        # return {'computation':augmentation_factor * batch_size * upload_step*float(self.compute_speed)/1000., \
+        #         'communication': (upload_size+download_size)/float(self.bandwidth)}
         # return (augmentation_factor * batch_size * upload_epoch*float(self.compute_speed)/1000. + \
         #         (upload_size+download_size)/float(self.bandwidth))
