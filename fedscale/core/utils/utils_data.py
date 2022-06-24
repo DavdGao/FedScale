@@ -25,19 +25,13 @@ def get_data_transform(data: str):
 
     elif data == 'cifar':
         train_transform = transforms.Compose([
-            transforms.RandomCrop(32, padding=4),   # input arguments: length&width of a figure
-            #transforms.RandomResizedCrop(224),
-            transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),  # convert PIL image or numpy.ndarray to tensor
-            #transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-            # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261))
         ])
 
         test_transform = transforms.Compose([
-            transforms.RandomCrop(32, padding=4),
-            transforms.ToTensor(),
-            #transforms.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)),
-            # transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+            transforms.ToTensor(),  # convert PIL image or numpy.ndarray to tensor
+            transforms.Normalize((0.4914, 0.4822, 0.4465), (0.247, 0.243, 0.261))
         ])
     elif data == 'imagenet':
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],

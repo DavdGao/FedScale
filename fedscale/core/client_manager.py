@@ -42,7 +42,7 @@ class clientManager(object):
         uniqueId = self.getUniqueId(hostId, clientId)
         user_trace = None if self.user_trace is None else self.user_trace[self.user_trace_keys[int(clientId)%len(self.user_trace)]]
 
-        self.Clients[uniqueId] = Client(hostId, clientId, speed, user_trace)
+        self.Clients[uniqueId] = Client(hostId, clientId, speed, size, user_trace)
 
         # remove clients
         if size >= self.filter_less and size <= self.filter_more:
@@ -68,6 +68,7 @@ class clientManager(object):
 
     def registerDuration(self, clientId, batch_size, upload_step, upload_size, download_size):
         if self.mode == "oort" and self.getUniqueId(0, clientId) in self.Clients:
+            # TODO: compute time here
             exe_cost = self.Clients[self.getUniqueId(0, clientId)].getCompletionTime(
                     batch_size=batch_size, upload_step=upload_step,
                     upload_size=upload_size, download_size=download_size

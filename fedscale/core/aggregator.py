@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+import sys
+sys.path.append('/mnt/gaodawei.gdw/FedScale')
+
 from cmath import log
 from fedscale.core import response
 from fedscale.core.fl_aggregator_libs import *
@@ -89,6 +92,8 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
 
         # ======== Task specific ============
         self.init_task_context()
+
+        self.trained_samples_total = 0.
 
 
     def setup_env(self):
@@ -329,6 +334,8 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
         # Importance of each update is 1/#_of_participants
         # importance = 1./self.tasks_round
 
+        trained_samples = results['trained_size']
+
         for p in results['update_weight']:
             param_weight = results['update_weight'][p]
             if isinstance(param_weight, list):
@@ -338,15 +345,9 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
             if self.model_in_update == 1:
                 self.model_weights[p].data = param_weight
             else:
-                self.model_weights[p].data += param_weight
-
-        if self.model_in_update == self.tasks_round:
-            for p in self.model_weights:
-                d_type = self.model_weights[p].data.dtype
-
-                self.model_weights[p].data = (
-                    self.model_weights[p]/float(self.tasks_round)).to(dtype=d_type)
-
+                self.model_weights[p].data += (trained_samples * (param_weight - self.model_weights[p].data) /
+                                               (self.trained_samples_total + trained_samples)).to(self.model_weights[p].data.dtype)
+        self.trained_samples_total += trained_samples
 
     def aggregate_client_group_weights(self, results):
         """Streaming weight aggregation. Similar to aggregate_client_weights, 
@@ -363,6 +364,8 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
                     self.model_weights[p_g][idx].data = param_weight
                 else:
                     self.model_weights[p_g][idx].data += param_weight
+
+        # TODO: modifed into weights by samples
 
         if self.model_in_update == self.tasks_round:
             for p in self.model_weights:
@@ -448,6 +451,8 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
         self.stats_util_accumulator = []
         self.client_training_results = []
 
+        self.trained_samples_total = 0.
+
         if self.round >= self.args.rounds:
             self.broadcast_aggregator_events(events.SHUT_DOWN)
         elif self.round % self.args.eval_interval == 0:
@@ -488,7 +493,8 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
         self.test_result_accumulator.append(results)
 
         # Have collected all testing results
-        if len(self.test_result_accumulator) == len(self.executors):
+        # if len(self.test_result_accumulator) == len(self.executors):
+        if len(self.test_result_accumulator) == 1:
             accumulator = self.test_result_accumulator[0]
             for i in range(1, len(self.test_result_accumulator)):
                 if self.args.task == "detection":
@@ -501,20 +507,13 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
                 else:
                     for key in accumulator:
                         accumulator[key] += self.test_result_accumulator[i][key]
-            if self.args.task == "detection":
-                self.testing_history['perf'][self.round] = {'round': self.round, 'clock': self.global_virtual_clock,
-                    'top_1': round(accumulator['top_1']*100.0/len(self.test_result_accumulator), 4),
-                    'top_5': round(accumulator['top_5']*100.0/len(self.test_result_accumulator), 4),
-                    'loss': accumulator['test_loss'],
-                    'test_len': accumulator['test_len']
-                }
-            else:
-                self.testing_history['perf'][self.round] = {'round': self.round, 'clock': self.global_virtual_clock,
-                    'top_1': round(accumulator['top_1']/accumulator['test_len']*100.0, 4),
-                    'top_5': round(accumulator['top_5']/accumulator['test_len']*100.0, 4),
-                    'loss': accumulator['test_loss']/accumulator['test_len'],
-                    'test_len': accumulator['test_len']
-                }
+
+            self.testing_history['perf'][self.round] = {'round': self.round, 'clock': self.global_virtual_clock,
+                'top_1': round(accumulator['top_1']/accumulator['test_len']*100.0, 4),
+                'top_5': round(accumulator['top_5']/accumulator['test_len']*100.0, 4),
+                'loss': accumulator['test_loss']/accumulator['test_len'],
+                'test_len': accumulator['test_len']
+            }
 
 
             logging.info("FL Testing in round: {}, virtual_clock: {}, top_1: {} %, top_5: {} %, test loss: {:.4f}, test len: {}"
@@ -631,7 +630,8 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
                 response_msg = self.get_shutdown_config(executor_id)
 
         if current_event != events.DUMMY_EVENT:
-            logging.info(f"Issue EVENT ({current_event}) to CLIENT ({executor_id})")
+            # logging.info(f"Issue EVENT ({current_event}) to CLIENT ({executor_id})")
+            pass
         response_msg, response_data = self.serialize_response(response_msg), self.serialize_response(response_data)
         # NOTE: in simulation mode, response data is pickle for faster (de)serialization
         return job_api_pb2.ServerResponse(event=current_event,
@@ -670,8 +670,11 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
             if len(self.broadcast_events_queue) > 0:
                 current_event = self.broadcast_events_queue.popleft()
 
-                if current_event in (events.UPDATE_MODEL, events.MODEL_TEST):
+                if current_event in events.UPDATE_MODEL:
                     self.dispatch_client_events(current_event)
+
+                elif current_event in events.MODEL_TEST:
+                    self.dispatch_client_events(current_event, ['1'])
 
                 elif current_event == events.START_ROUND:
                     self.dispatch_client_events(events.CLIENT_TRAIN)
@@ -686,6 +689,7 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
 
                 if current_event == events.UPLOAD_MODEL:
                     self.client_completion_handler(self.deserialize_response(data))
+                    logging.info(f'Receive {len(self.stats_util_accumulator)}/{self.tasks_round} update weights from clients.')
                     if len(self.stats_util_accumulator) == self.tasks_round:
                             self.round_completion_handler()
 

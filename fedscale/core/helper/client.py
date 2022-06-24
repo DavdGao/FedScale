@@ -1,11 +1,12 @@
-
+import numpy as np
 class Client(object):
 
-    def __init__(self, hostId, clientId, speed, traces=None):
+    def __init__(self, hostId, clientId, speed, size, traces=None):
         self.hostId = hostId
         self.clientId = clientId
         self.compute_speed = speed['computation']
         self.bandwidth = speed['communication']
+        self.size = size
         self.score = 0
         self.traces = traces
         self.behavior_index = 0
@@ -38,8 +39,18 @@ class Client(object):
                                 backward-pass takes around 2x the latency, so we multiple it by 3x;
            Communication latency: communication latency = (pull + push)_update_size/bandwidth;
         """
-        #return (3.0 * batch_size * num_steps/float(self.compute_speed) + model_size/float(self.bandwidth))
-        return {'computation':augmentation_factor * batch_size * upload_step*float(self.compute_speed)/1000., \
-                'communication': (upload_size+download_size)/float(self.bandwidth)}
-        # return (augmentation_factor * batch_size * upload_epoch*float(self.compute_speed)/1000. + \
-        #         (upload_size+download_size)/float(self.bandwidth))
+        # compute with self.size
+        num_batch_of_one_epoch = np.ceil(self.size / batch_size)
+
+        # 训练了多少个完整的epoch
+        trained_completed_epoch = upload_step // num_batch_of_one_epoch
+        # 最后一个epoch有多少个batch
+        num_batch_of_last_epoch = upload_step % num_batch_of_one_epoch
+
+        trained_samples = trained_completed_epoch * self.size + num_batch_of_last_epoch * batch_size
+
+        return {
+            'computation': augmentation_factor * trained_samples * float(self.compute_speed)/1000.,
+            'communication': (upload_size+download_size)/float(self.bandwidth)
+        }
+

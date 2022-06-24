@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+
+import sys
+sys.path.append('/mnt/gaodawei.gdw/FedScale')
+
 from fedscale.core.fl_client_libs import *
 from argparse import Namespace
 import gc
@@ -40,6 +44,8 @@ class Executor(object):
         self.received_stop_request = False
         self.event_queue = collections.deque()
 
+        self.lens = list()
+
         super(Executor, self).__init__()
 
     def setup_env(self):
@@ -80,17 +86,29 @@ class Executor(object):
 
     def init_data(self):
         """Return the training and testing dataset"""
-        train_dataset, test_dataset = init_dataset()
-        if self.task == "rl":
-            return train_dataset, test_dataset
+        # For Cifar-10
+        train_val_dataset, test_dataset = init_dataset()
+        train_dataset = torch.utils.data.Subset(train_val_dataset, sorted(np.random.choice(np.arange(len(train_val_dataset)), size=40000, replace=False)))
+        train_dataset.targets = [y for _, y in train_dataset]
+
         # load data partitioner (entire_train_data)
         logging.info("Data partitioner starts ...")
 
-        training_sets = DataPartitioner(data=train_dataset, args = self.args, numOfClass=self.args.num_class)
-        training_sets.partition_data_helper(num_clients=self.args.total_worker, data_map_file=self.args.data_map_file)
+        training_sets = DataPartitioner(data=train_dataset, args=self.args, numOfClass=self.args.num_class)
+        train_labels = training_sets.dirichlet_partition(
+            client_num=1000,
+            alpha=0.2,
+            min_size=1
+        )
 
-        testing_sets = DataPartitioner(data=test_dataset, args = self.args, numOfClass=self.args.num_class, isTest=True)
-        testing_sets.partition_data_helper(num_clients=self.num_executors)
+        testing_sets = DataPartitioner(data=test_dataset, args=self.args, numOfClass=self.args.num_class, isTest=True)
+        testing_sets.dirichlet_partition(
+            client_num=1000,
+            alpha=0.2,
+            min_size=1,
+            prior=train_labels,
+            isTest=True
+        )
 
         logging.info("Data partitioner completes ...")
 
@@ -236,23 +254,16 @@ class Executor(object):
         evalStart = time.time()
         device = self.device
         model = self.load_global_model()
-        if self.task == 'rl':
-            client = RLClient(args)
-            test_res = client.test(args, self.this_rank, model, device=device)
-            _, _, _, testResults = test_res
-        else:
-            data_loader = select_dataset(self.this_rank, self.testing_sets, batch_size=args.test_bsz, args = self.args, isTest=True, collate_fn=self.collate_fn)
+        data_loader = select_dataset(self.this_rank, self.testing_sets, batch_size=args.test_bsz, args = self.args, isTest=True, collate_fn=self.collate_fn)
 
-            if self.task == 'voice':
-                criterion = CTCLoss(reduction='mean').to(device=device)
-            else:
-                criterion = torch.nn.CrossEntropyLoss().to(device=device)
+        criterion = torch.nn.CrossEntropyLoss().to(device=device)
 
-            test_res = test_model(self.this_rank, model, data_loader, device=device, criterion=criterion, tokenizer=tokenizer)
+        test_res = test_model(self.this_rank, model, data_loader, device=device, criterion=criterion,
+                              partitions=self.testing_sets.partitions_test, tokenizer=tokenizer)
 
-            test_loss, acc, acc_5, testResults = test_res
-            logging.info("After aggregation round {}, CumulTime {}, eval_time {}, test_loss {}, test_accuracy {:.2f}%, test_5_accuracy {:.2f}% \n"
-                        .format(self.round, round(time.time() - self.start_run_time, 4), round(time.time() - evalStart, 4), test_loss, acc*100., acc_5*100.))
+        test_loss, acc, acc_5, testResults = test_res
+        logging.info("After aggregation round {}, CumulTime {}, eval_time {}, test_loss {}, test_accuracy {:.2f}%, test_5_accuracy {:.2f}% \n"
+                    .format(self.round, round(time.time() - self.start_run_time, 4), round(time.time() - evalStart, 4), test_loss, acc*100., acc_5*100.))
 
         gc.collect()
 
