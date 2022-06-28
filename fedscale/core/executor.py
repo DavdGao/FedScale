@@ -86,20 +86,21 @@ class Executor(object):
 
     def init_data(self):
         """Return the training and testing dataset"""
-        # For Cifar-10
-        train_val_dataset, test_dataset = init_dataset()
-        train_dataset = torch.utils.data.Subset(train_val_dataset, sorted(np.random.choice(np.arange(len(train_val_dataset)), size=40000, replace=False)))
-        train_dataset.targets = [y for _, y in train_dataset]
 
-        # load data partitioner (entire_train_data)
         logging.info("Data partitioner starts ...")
 
-        training_sets = DataPartitioner(data=train_dataset, args=self.args, numOfClass=self.args.num_class)
-        testing_sets = DataPartitioner(data=test_dataset, args=self.args, numOfClass=self.args.num_class, isTest=True)
+        if args.data_set == "cifar10":
+            # For Cifar-10
+            train_val_dataset, test_dataset = init_dataset()
+            train_dataset = torch.utils.data.Subset(train_val_dataset, sorted(np.random.choice(np.arange(len(train_val_dataset)), size=40000, replace=False)))
+            train_dataset.targets = [y for _, y in train_dataset]
 
-        logging.info(f'The number of partitioned samples is {[len(p) for p in training_sets.partitions]}')
+            # load data partitioner (entire_train_data)
+            training_sets = DataPartitioner(data=train_dataset, args=self.args, numOfClass=self.args.num_class)
+            testing_sets = DataPartitioner(data=test_dataset, args=self.args, numOfClass=self.args.num_class, isTest=True)
 
-        if args.data_set == 'cifar10':
+            logging.info(f'The number of partitioned samples is {[len(p) for p in training_sets.partitions]}')
+
             train_labels = training_sets.dirichlet_partition(
                 client_num=1000,
                 alpha=0.2,
@@ -112,7 +113,14 @@ class Executor(object):
                 prior=train_labels,
                 isTest=True
             )
+
         elif args.data_set == 'femnist':
+            train_dataset, test_dataset = init_dataset()
+
+            training_sets = DataPartitioner(data=train_dataset, args=self.args, numOfClass=self.args.num_class)
+            testing_sets = DataPartitioner(data=test_dataset, args=self.args, numOfClass=self.args.num_class,
+                                           isTest=True)
+
             training_sets.trace_partition(data_map_file=self.args.data_map_file)
             testing_sets.one_partition(data_map_file=self.args.data_map_file.replace("train.csv", "test.csv"))
 
