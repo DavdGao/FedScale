@@ -142,8 +142,8 @@ def test_model(rank, model, test_data, device='cpu', criterion=nn.NLLLoss(), par
     model = model.to(device=device) # load by pickle
     model.eval()
 
-    output_list = list()
-    target_list = list()
+    # output_list = list()
+    # target_list = list()
     with torch.no_grad():
         for data, target in test_data:
             try:
@@ -158,29 +158,29 @@ def test_model(rank, model, test_data, device='cpu', criterion=nn.NLLLoss(), par
                 correct += acc[0].item()
                 top_5 += acc[1].item()
 
-                output_list.append(output.cpu())
-                target_list.append(target.cpu())
+                # output_list.append(output.cpu())
+                # target_list.append(target.cpu())
             except Exception as ex:
                 logging.info(f"Testing of failed as {ex}")
                 break
             test_len += len(target)
 
     # TODO: dawei
-    output_concat = torch.concat(output_list)
-    target_concat = torch.concat(target_list)
-    output_list = None
-    target_list = None
+    # output_concat = torch.concat(output_list)
+    # target_concat = torch.concat(target_list)
+    # output_list = None
+    # target_list = None
     acc_clients = list()
-    for indices in partitions:
-        correct_client = accuracy(output_concat[indices], target_concat[indices])[0].item()
-
-        if len(indices) != 0:
-            acc_client = round(correct_client / len(indices), 4)
-        else:
-            acc_client = round(1.0, 4)
-        acc_clients.append(acc_client)
-    output_concat = None
-    target_concat = None
+    # for indices in partitions:
+    #     correct_client = accuracy(output_concat[indices], target_concat[indices])[0].item()
+    #
+    #     if len(indices) != 0:
+    #         acc_client = round(correct_client / len(indices), 4)
+    #     else:
+    #         acc_client = round(1.0, 4)
+    #     acc_clients.append(acc_client)
+    # output_concat = None
+    # target_concat = None
 
     test_len = max(test_len, 1)
     # loss function averages over batch size
