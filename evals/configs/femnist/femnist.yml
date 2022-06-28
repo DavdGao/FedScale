@@ -52,7 +52,7 @@ job_conf:
     - test_bsz: 20
     - malicious_factor: 4
     - use_cuda: True
-    - input_dim: 1
+    - input_dim: 3
     - sample_seed: 2
     - test_ratio: 1.
     - loss_decay: 0.

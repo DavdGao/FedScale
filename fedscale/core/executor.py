@@ -126,7 +126,7 @@ class Executor(object):
 
             logging.info(f'The number of trained partitioned samples is {[len(p) for p in training_sets.partitions]}')
             logging.info(f'The number of test partitioned samples is {[len(p) for p in testing_sets.partitions]}')
-            logging.info(f'The number of test partitioned_test samples is {[len(p) for p in training_sets.partitions_test]}')
+            logging.info(f'The number of test partitioned_test samples is {[len(p) for p in testing_sets.partitions_test]}')
 
         logging.info("Data partitioner completes ...")
 
