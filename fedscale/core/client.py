@@ -22,8 +22,6 @@ class Client(object):
 
         global_model = None
 
-        assert conf.learning_rate == 1.0
-
         optimizer = torch.optim.SGD(model.parameters(), lr=conf.learning_rate)
         criterion = torch.nn.CrossEntropyLoss(reduction='none').to(device=device)
 
