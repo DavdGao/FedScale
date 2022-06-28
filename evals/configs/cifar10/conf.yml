@@ -8,7 +8,7 @@ ps_ip: 0.0.0.0
 # Note that if we collocate ps and worker on same GPU, then we need to decrease this number of available processes on that GPU by 1
 # E.g., master node has 4 available processes, then 1 for the ps, and worker should be set to: worker:3
 worker_ips:
-    - 0.0.0.0:[0,7,7] # worker_ip: [(# processes on gpu) for gpu in available_gpus] eg. 10.0.0.2:[4,4,4,4] This node has 4 gpus, each gpu has 4 processes.
+    - 0.0.0.0:[0,3,3] # worker_ip: [(# processes on gpu) for gpu in available_gpus] eg. 10.0.0.2:[4,4,4,4] This node has 4 gpus, each gpu has 4 processes.
 
 
 exp_path: /mnt/gaodawei.gdw/FedScale/fedscale/core
@@ -47,7 +47,7 @@ job_conf:
     - filter_less: 0                       # Remove clients w/ less than 21 samples
     - num_loaders: 2
     - local_steps: 4
-    - learning_rate: 0.5
+    - learning_rate: 1.0
     - decay_factor: 1.  # decay factor of the learning rate
     - batch_size: 20
     - test_bsz: 20
@@ -57,4 +57,4 @@ job_conf:
     - sample_seed: 2
     - test_ratio: 1.
     - loss_decay: 0.
-    - hidden: 1024 
+    - hidden: 2048
