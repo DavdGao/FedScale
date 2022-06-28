@@ -74,6 +74,9 @@ class Client(object):
 
                     completed_steps += 1
 
+                    if completed_steps >= conf.local_steps:
+                        break
+
             except Exception as ex:
                 error_type = ex
                 break
@@ -92,7 +95,7 @@ class Client(object):
         results['utility'] = math.sqrt(loss_squre)*float(trained_samples)
 
         if error_type is None:
-            logging.info(f"Training of (CLIENT: {clientId}) completes with {trained_samples} samples, {results}")
+            logging.info(f"Training of (CLIENT: {clientId}) completes with {trained_samples} samples and {completed_steps} batches, {results}")
         else:
             logging.info(f"Training of (CLIENT: {clientId}) failed as {error_type}")
 

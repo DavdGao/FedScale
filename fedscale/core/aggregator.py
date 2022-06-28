@@ -577,9 +577,9 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
     def get_shutdown_config(self, client_id):
         return {'client_id': client_id}
 
-    def add_event_handler(self, client_id, event, meta, data):
+    def add_event_handler(self, executor_id, client_id, event, meta, data):
         """ Due to the large volume of requests, we will put all events into a queue first."""
-        self.sever_events_queue.append((client_id, event, meta, data))
+        self.sever_events_queue.append((executor_id, client_id, event, meta, data))
 
 
     def CLIENT_REGISTER(self, request, context):
@@ -656,7 +656,7 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
                 self.individual_client_events[executor_id].appendleft(events.CLIENT_TRAIN)
 
         elif event in (events.MODEL_TEST, events.UPLOAD_MODEL):
-            self.add_event_handler(executor_id, event, meta_result, data_result)
+            self.add_event_handler(executor_id, client_id, event, meta_result, data_result)
         else:
             logging.error(f"Received undefined event {event} from client {client_id}")
         return self.CLIENT_PING(request, context)
@@ -685,13 +685,13 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
 
             # Handle events queued on the aggregator
             elif len(self.sever_events_queue) > 0:
-                client_id, current_event, meta, data = self.sever_events_queue.popleft()
+                executor_id, client_id, current_event, meta, data = self.sever_events_queue.popleft()
 
                 if current_event == events.UPLOAD_MODEL:
                     self.client_completion_handler(self.deserialize_response(data))
-                    logging.info(f'Receive {len(self.stats_util_accumulator)}/{self.tasks_round} update weights from clients.')
+                    logging.info(f'Receive {len(self.stats_util_accumulator)}/{self.tasks_round} update weights from client {client_id}.')
                     if len(self.stats_util_accumulator) == self.tasks_round:
-                            self.round_completion_handler()
+                        self.round_completion_handler()
 
                 elif current_event == events.MODEL_TEST:
                     self.testing_completion_handler(client_id, self.deserialize_response(data))
