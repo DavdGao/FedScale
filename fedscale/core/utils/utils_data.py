@@ -9,11 +9,13 @@ def get_data_transform(data: str):
     if data == 'mnist':
         train_transform = transforms.Compose([
             transforms.ToTensor(),
+            transforms.Resize([28, 28]),
             transforms.Normalize((0.1307,), (0.3081,))
         ])
 
         test_transform = transforms.Compose([
             transforms.ToTensor(),
+            transforms.Resize([28, 28]),
             transforms.Normalize((0.1307,), (0.3081,))
         ])
 
