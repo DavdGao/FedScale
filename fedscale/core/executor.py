@@ -34,7 +34,8 @@ class Executor(object):
         self.temp_model_path = os.path.join(logDir, 'model_'+str(args.this_rank)+'.pth.tar')
 
         # ======== channels ========
-        self.aggregator_communicator = ClientConnections(args.ps_ip, args.ps_port)
+        # self.aggregator_communicator = ClientConnections(args.ps_ip, args.ps_port)
+        self.aggregator_communicator = ClientConnections(args.ps_ip, '29501')
 
         # ======== runtime information ========
         self.collate_fn = None

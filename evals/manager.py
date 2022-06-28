@@ -84,6 +84,9 @@ def process_cmd(yaml_file,local = False):
                 worker_cmd = f" python {yaml_conf['exp_path']}/{yaml_conf['executor_entry']} {conf_script} --this_rank={rank_id} --num_executors={total_gpu_processes} --cuda_device=cuda:{cuda_id} "
                 rank_id += 1
 
+                port = 29501 + rank_id - 1
+                worker_cmd += f"--ps_port={port}"
+
                 with open(f"{job_name}_logging", 'a') as fout:
                     time.sleep(2)
                     if local:
