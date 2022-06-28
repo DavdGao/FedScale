@@ -183,6 +183,40 @@ class DataPartitioner(object):
 
             return client_labels
 
+    def one_partition(self, data_map_file):
+        self.uniform_partition(num_clients=1)
+
+        logging.info(f"Partitioning data by profile {data_map_file}...")
+
+        clientId_maps = {}
+        unique_clientIds = {}
+        # load meta data from the data_map_file
+        with open(data_map_file) as csv_file:
+            csv_reader = csv.reader(csv_file, delimiter=',')
+            read_first = True
+            sample_id = 0
+
+            for row in csv_reader:
+                if read_first:
+                    logging.info(f'Trace names are {", ".join(row)}')
+                    read_first = False
+                else:
+                    client_id = row[0]
+
+                    if client_id not in unique_clientIds:
+                        unique_clientIds[client_id] = len(unique_clientIds)
+
+                    clientId_maps[sample_id] = unique_clientIds[client_id]
+                    self.client_label_cnt[unique_clientIds[client_id]].add(row[-1])
+                    sample_id += 1
+
+        # Partition data given mapping
+        self.partitions_test = [[] for _ in range(len(unique_clientIds))]
+
+        for idx in range(sample_id):
+            self.partitions_test[clientId_maps[idx]].append(idx)
+
+
     def uniform_partition(self, num_clients):
         # random partition
         numOfLabels = self.getNumOfLabels()

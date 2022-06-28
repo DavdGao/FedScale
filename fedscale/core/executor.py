@@ -95,22 +95,26 @@ class Executor(object):
         logging.info("Data partitioner starts ...")
 
         training_sets = DataPartitioner(data=train_dataset, args=self.args, numOfClass=self.args.num_class)
-        train_labels = training_sets.dirichlet_partition(
-            client_num=1000,
-            alpha=0.2,
-            min_size=1
-        )
+        testing_sets = DataPartitioner(data=test_dataset, args=self.args, numOfClass=self.args.num_class, isTest=True)
 
         logging.info(f'The number of partitioned samples is {[len(p) for p in training_sets.partitions]}')
 
-        testing_sets = DataPartitioner(data=test_dataset, args=self.args, numOfClass=self.args.num_class, isTest=True)
-        testing_sets.dirichlet_partition(
-            client_num=1000,
-            alpha=0.2,
-            min_size=1,
-            prior=train_labels,
-            isTest=True
-        )
+        if args.data_set == 'cifar10':
+            train_labels = training_sets.dirichlet_partition(
+                client_num=1000,
+                alpha=0.2,
+                min_size=1
+            )
+            testing_sets.dirichlet_partition(
+                client_num=1000,
+                alpha=0.2,
+                min_size=1,
+                prior=train_labels,
+                isTest=True
+            )
+        elif args.data_set == 'femnist':
+            training_sets.trace_partition(data_map_file=self.args.data_map_file)
+            testing_sets.one_partition(data_map_file=self.args.data_map_file.replace("train.csv", "test.csv"))
 
         logging.info("Data partitioner completes ...")
 
