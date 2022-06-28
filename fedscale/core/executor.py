@@ -101,6 +101,8 @@ class Executor(object):
             min_size=1
         )
 
+        logging.info(f'The number of partitioned samples is {[len(p) for p in training_sets.partitions]}')
+
         testing_sets = DataPartitioner(data=test_dataset, args=self.args, numOfClass=self.args.num_class, isTest=True)
         testing_sets.dirichlet_partition(
             client_num=1000,
@@ -309,6 +311,8 @@ class Executor(object):
                         event = events.UPLOAD_MODEL, status = True, msg = None,
                         meta_result = None, data_result = self.serialize_response(train_res)
                     ))
+
+                    logging.info(f"CLIENT {client_id} uploads its update model.")
 
                 elif current_event == events.MODEL_TEST:
                     self.Test(self.deserialize_response(request.meta))
