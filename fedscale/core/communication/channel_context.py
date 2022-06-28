@@ -19,6 +19,8 @@ class ClientConnections(object):
             options=[
                 ('grpc.max_send_message_length', MAX_MESSAGE_LENGTH),
                 ('grpc.max_receive_message_length', MAX_MESSAGE_LENGTH),
+                # TODO: a test
+                ('grpc.enable_http_proxy', 0),
             ]
         )
         self.stub = job_api_pb2_grpc.JobServiceStub(self.channel)
