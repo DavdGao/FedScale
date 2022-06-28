@@ -171,7 +171,11 @@ def init_model():
         elif args.model == "convnet2":
             from fedscale.core.utils.models import ConvNet2
             logging.info("Load ConvNet2...")
-            model = ConvNet2(args.input_dim, hidden=args.hidden, class_num=outputClass[args.data_set])
+            if args.data_set == "cifar10":
+                h, w = 32, 32
+            else:
+                h, w = 28, 28
+            model = ConvNet2(args.input_dim, h=h, w=w, hidden=args.hidden, class_num=outputClass[args.data_set], dropout=args.dropout)
         else:
             model = tormodels.__dict__[args.model](num_classes=outputClass[args.data_set])
 
