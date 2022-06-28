@@ -121,8 +121,13 @@ class Executor(object):
             testing_sets = DataPartitioner(data=test_dataset, args=self.args, numOfClass=self.args.num_class,
                                            isTest=True)
 
+            logging.info(f'The number of trained partitioned samples is {[len(p) for p in training_sets.partitions]}')
+
             training_sets.trace_partition(data_map_file=self.args.data_map_file)
             testing_sets.one_partition(data_map_file=self.args.data_map_file.replace("train.csv", "test.csv"))
+
+            logging.info(f'The number of test partitioned samples is {[len(p) for p in training_sets.partitions]}')
+            logging.info(f'The number of test partitioned_test samples is {[len(p) for p in training_sets.partitions_test]}')
 
         logging.info("Data partitioner completes ...")
 
