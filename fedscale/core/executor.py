@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+
+import sys
+sys.path.append('/mnt/gaodawei.gdw/FedScale')
+
 from fedscale.core.fl_client_libs import *
 from argparse import Namespace
 import gc
@@ -90,7 +94,7 @@ class Executor(object):
         training_sets.partition_data_helper(num_clients=self.args.total_worker, data_map_file=self.args.data_map_file)
 
         testing_sets = DataPartitioner(data=test_dataset, args = self.args, numOfClass=self.args.num_class, isTest=True)
-        testing_sets.partition_data_helper(num_clients=self.num_executors)
+        testing_sets.partition_data_helper(num_clients=1)
 
         logging.info("Data partitioner completes ...")
 
@@ -236,23 +240,15 @@ class Executor(object):
         evalStart = time.time()
         device = self.device
         model = self.load_global_model()
-        if self.task == 'rl':
-            client = RLClient(args)
-            test_res = client.test(args, self.this_rank, model, device=device)
-            _, _, _, testResults = test_res
-        else:
-            data_loader = select_dataset(self.this_rank, self.testing_sets, batch_size=args.test_bsz, args = self.args, isTest=True, collate_fn=self.collate_fn)
+        data_loader = select_dataset(self.this_rank, self.testing_sets, batch_size=args.test_bsz, args = self.args, isTest=True, collate_fn=self.collate_fn)
 
-            if self.task == 'voice':
-                criterion = CTCLoss(reduction='mean').to(device=device)
-            else:
-                criterion = torch.nn.CrossEntropyLoss().to(device=device)
+        criterion = torch.nn.CrossEntropyLoss().to(device=device)
 
-            test_res = test_model(self.this_rank, model, data_loader, device=device, criterion=criterion, tokenizer=tokenizer)
+        test_res = test_model(self.this_rank, model, data_loader, device=device, criterion=criterion, tokenizer=tokenizer)
 
-            test_loss, acc, acc_5, testResults = test_res
-            logging.info("After aggregation round {}, CumulTime {}, eval_time {}, test_loss {}, test_accuracy {:.2f}%, test_5_accuracy {:.2f}% \n"
-                        .format(self.round, round(time.time() - self.start_run_time, 4), round(time.time() - evalStart, 4), test_loss, acc*100., acc_5*100.))
+        test_loss, acc, acc_5, testResults = test_res
+        logging.info("After aggregation round {}, CumulTime {}, eval_time {}, test_loss {}, test_accuracy {:.2f}%, test_5_accuracy {:.2f}% \n"
+                    .format(self.round, round(time.time() - self.start_run_time, 4), round(time.time() - evalStart, 4), test_loss, acc*100., acc_5*100.))
 
         gc.collect()
 
@@ -298,6 +294,8 @@ class Executor(object):
                         event = events.UPLOAD_MODEL, status = True, msg = None,
                         meta_result = None, data_result = self.serialize_response(train_res)
                     ))
+
+                    logging.info(f"CLIENT {client_id} uploads its update model.")
 
                 elif current_event == events.MODEL_TEST:
                     self.Test(self.deserialize_response(request.meta))

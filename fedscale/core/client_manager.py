@@ -42,7 +42,7 @@ class clientManager(object):
         uniqueId = self.getUniqueId(hostId, clientId)
         user_trace = None if self.user_trace is None else self.user_trace[self.user_trace_keys[int(clientId)%len(self.user_trace)]]
 
-        self.Clients[uniqueId] = Client(hostId, clientId, speed, user_trace)
+        self.Clients[uniqueId] = Client(hostId, clientId, speed, size, user_trace)
 
         # remove clients
         if size >= self.filter_less and size <= self.filter_more:
