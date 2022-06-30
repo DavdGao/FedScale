@@ -663,7 +663,7 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
                     logging.info(
                         f'Receive {len(self.stats_util_accumulator)}/{self.tasks_round} update weights from client {client_id}.')
                     if len(self.stats_util_accumulator) == self.tasks_round:
-                            self.round_completion_handler()
+                        self.round_completion_handler()
 
                 elif current_event == events.MODEL_TEST:
                     self.testing_completion_handler(client_id, self.deserialize_response(data))
