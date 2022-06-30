@@ -28,6 +28,7 @@ from torch.autograd import Variable
 from torchvision import datasets, transforms
 import torchvision.models as tormodels
 from torch.utils.data.sampler import WeightedRandomSampler
+from fedscale.core.utils.twitter.leaf import LocalDataset
 
 tokenizer = None
 if args.task == 'nlp' or args.task == 'text_clf':
@@ -74,7 +75,8 @@ os.environ['MASTER_PORT'] = args.ps_port
 
 
 outputClass = {'Mnist': 10, 'cifar10': 10, "imagenet": 1000, 'emnist': 47,'amazon':5,
-                'openImg': 596, 'google_speech': 35, 'femnist': 62, 'yelp': 5, 'inaturalist' : 1010
+                'openImg': 596, 'google_speech': 35, 'femnist': 62, 'yelp': 5, 'inaturalist' : 1010,
+               'twitter': 2
             }
 
 def init_model():
@@ -82,210 +84,69 @@ def init_model():
 
     logging.info("Initializing the model ...")
 
-    if args.task == 'nlp':
-        config = AutoConfig.from_pretrained(os.path.join(args.data_dir, args.model+'-config.json'))
-        model = AutoModelWithLMHead.from_config(config)
-        tokenizer = AlbertTokenizer.from_pretrained(args.model, do_lower_case=True)
-
-        # model_name = 'google/mobilebert-uncased'
-        # config = AutoConfig.from_pretrained(model_name)
-        # tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=True)
-        # model = MobileBertForPreTraining.from_pretrained(model_name)
-        # model = AutoModelWithLMHead.from_config(config)
-
-    elif args.task == 'text_clf':
-
-        if args.model == 'albert':
-            from transformers import AlbertForSequenceClassification
-            from transformers import AutoConfig
-            config = AutoConfig.from_pretrained(os.path.join(args.log_path, 'albert-small-config.json'))
-            config.num_labels = outputClass[args.data_set]
-            model = AlbertForSequenceClassification(config)
-        elif args.model == 'lr':
-            from fedscale.core.utils.models import  LogisticRegression
-            model = LogisticRegression(300, outputClass[args.data_set])
-
-
-    elif args.task == 'tag-one-sample':
-        # Load LR model for tag prediction
-        model = LogisticRegression(args.vocab_token_size, args.vocab_tag_size)
-    elif args.task == 'speech':
-        if args.model == 'mobilenet':
-            from fedscale.core.utils.resnet_speech import mobilenet_v2
-            model = mobilenet_v2(num_classes=outputClass[args.data_set])
-        elif args.model == "resnet18":
-            from fedscale.core.utils.resnet_speech import resnet18
-            model = resnet18(num_classes=outputClass[args.data_set], in_channels=1)
-        elif args.model == "resnet34":
-            from fedscale.core.utils.resnet_speech import resnet34
-            model = resnet34(num_classes=outputClass[args.data_set], in_channels=1)
-        elif args.model == "resnet50":
-            from fedscale.core.utils.resnet_speech import resnet50
-            model = resnet50(num_classes=outputClass[args.data_set], in_channels=1)
-        elif args.model == "resnet101":
-            from fedscale.core.utils.resnet_speech import resnet101
-            model = resnet101(num_classes=outputClass[args.data_set], in_channels=1)
-        elif args.model == "resnet152":
-            from fedscale.core.utils.resnet_speech import resnet152
-            model = resnet152(num_classes=outputClass[args.data_set], in_channels=1)
-        else:
-            # Should not reach here
-            logging.info('Model must be resnet or mobilenet')
-            sys.exit(-1)
-
-    elif args.task == 'voice':
-        from fedscale.core.utils.voice_model import DeepSpeech, supported_rnns
-
-        # Initialise new model training
-        with open(os.path.join(args.data_dir, "labels.json")) as label_file:
-            labels = json.load(label_file)
-
-        audio_conf = dict(sample_rate=args.sample_rate,
-                          window_size=args.window_size,
-                          window_stride=args.window_stride,
-                          window=args.window,
-                          noise_dir=args.noise_dir,
-                          noise_prob=args.noise_prob,
-                          noise_levels=(args.noise_min, args.noise_max))
-        model = DeepSpeech(rnn_hidden_size=args.hidden_size,
-                           nb_layers=args.hidden_layers,
-                           labels=labels,
-                           rnn_type=supported_rnns[args.rnn_type.lower()],
-                           audio_conf=audio_conf,
-                           bidirectional=args.bidirectional)
-    elif args.task == 'detection':
-        cfg_from_file(args.cfg_file)
-        cfg_from_list(['DATA_DIR', args.data_dir])
-        model = resnet(readClass(os.path.join(args.data_dir, "class.txt")), 50, pretrained=True, class_agnostic=False,pretrained_model=args.backbone)
-        model.create_architecture()
-        return model
-    elif args.task == 'rl':
-        model = DQN(args).target_net
+    if args.model == "convnet2":
+        from fedscale.core.utils.models import ConvNet2
+        logging.info("Load ConvNet2...")
+        if args.data_set == "cifar10":
+            h, w = 32, 32
+        elif args.data_set == "femnist":
+            h, w = 28, 28
+        model = ConvNet2(args.input_dim, h=h, w=w, hidden=args.hidden, class_num=outputClass[args.data_set],
+                         dropout=args.dropout)
+    elif args.model == "lr":
+        from fedscale.core.utils.models import LogisticRegression
+        model = LogisticRegression(input_dim=args.input_dim, output_dim=outputClass[args.data_set])
     else:
-        if args.model == "lr":
-            from fedscale.core.utils.models import LogisticRegression
-            model = LogisticRegression(args.input_dim, outputClass[args.data_set])
-        elif args.model == 'svm':
-            from fedscale.core.utils.models import LinearSVM
-            model = LinearSVM(args.input_dim, outputClass[args.data_set])
-        elif args.model == "convnet2":
-            from fedscale.core.utils.models import ConvNet2
-            logging.info("Load ConvNet2...")
-            if args.data_set == "cifar10":
-                h, w = 32, 32
-            elif args.data_set == "femnist":
-                h, w = 28, 28
-            model = ConvNet2(args.input_dim, h=h, w=w, hidden=args.hidden, class_num=outputClass[args.data_set],
-                             dropout=args.dropout)
-        else:
-            model = tormodels.__dict__[args.model](num_classes=outputClass[args.data_set])
+        model = tormodels.__dict__[args.model](num_classes=outputClass[args.data_set])
 
     return model
 
 
 def init_dataset():
 
-    if args.data_set == 'Mnist':
-        train_transform, test_transform = get_data_transform('mnist')
-
-        train_dataset = datasets.MNIST(args.data_dir, train=True, download=True,
-                                    transform=train_transform)
-        test_dataset = datasets.MNIST(args.data_dir, train=False, download=True,
-                                    transform=test_transform)
-
-    elif args.data_set == 'cifar10':
-        train_transform, test_transform = get_data_transform('cifar')
-        train_dataset = datasets.CIFAR10(args.data_dir, train=True, download=True,
-                                        transform=train_transform)
-        test_dataset = datasets.CIFAR10(args.data_dir, train=False, download=True,
-                                        transform=test_transform)
-
-    elif args.data_set == "imagenet":
-        train_transform, test_transform = get_data_transform('imagenet')
-        train_dataset = datasets.ImageNet(args.data_dir, split='train', download=False, transform=train_transform)
-        test_dataset = datasets.ImageNet(args.data_dir, split='val', download=False, transform=test_transform)
-
-    elif args.data_set == 'emnist':
-        test_dataset = datasets.EMNIST(args.data_dir, split='balanced', train=False, download=True, transform=transforms.ToTensor())
-        train_dataset = datasets.EMNIST(args.data_dir, split='balanced', train=True, download=True, transform=transforms.ToTensor())
-
-    elif args.data_set == 'femnist':
-        from fedscale.core.utils.femnist import FEMNIST
-
-        train_transform, test_transform = get_data_transform('mnist')
-        train_dataset = FEMNIST(args.data_dir, dataset='train', transform=train_transform)
-        test_dataset = FEMNIST(args.data_dir, dataset='test', transform=test_transform)
-
-    elif args.data_set == 'openImg':
-        from fedscale.core.utils.openimage import OpenImage
-
-        train_transform, test_transform = get_data_transform('openImg')
-        train_dataset = OpenImage(args.data_dir, dataset='train', transform=train_transform)
-        test_dataset = OpenImage(args.data_dir, dataset='test', transform=test_transform)
-
-    elif args.data_set == 'blog':
-        train_dataset = load_and_cache_examples(args, tokenizer, evaluate=False)
-        test_dataset = load_and_cache_examples(args, tokenizer, evaluate=True)
-
-    elif args.data_set == 'stackoverflow':
-        from fedscale.core.utils.stackoverflow import stackoverflow
-
-        train_dataset = stackoverflow(args.data_dir, train=True)
-        test_dataset = stackoverflow(args.data_dir, train=False)
-
-    elif args.data_set == 'amazon':
-        if args.model == 'albert':
-            import fedscale.core.utils.amazon as fl_loader
-            train_dataset = fl_loader.AmazonReview_loader(args.data_dir, train=True, tokenizer=tokenizer, max_len=args.clf_block_size  )
-            test_dataset = fl_loader.AmazonReview_loader(args.data_dir, train=False, tokenizer=tokenizer, max_len=args.clf_block_size )
-
-        elif args.model == 'lr':
-            import fedscale.core.utils.word2vec as fl_loader
-            train_dataset = fl_loader.AmazonReview_word2vec(args.data_dir, args.embedding_file, train=True)
-            test_dataset = fl_loader.AmazonReview_word2vec( args.data_dir, args.embedding_file, train=False)
-
-    elif args.data_set == 'yelp':
-        import fedscale.core.utils.dataloaders as fl_loader
-
-        train_dataset = fl_loader.TextSentimentDataset(args.data_dir, train=True, tokenizer=tokenizer, max_len=args.clf_block_size)
-        test_dataset = fl_loader.TextSentimentDataset(args.data_dir, train=False, tokenizer=tokenizer, max_len=args.clf_block_size)
-
-    elif args.data_set == 'google_speech':
-        bkg = '_background_noise_'
-        data_aug_transform = transforms.Compose(
-            [ChangeAmplitude(), ChangeSpeedAndPitchAudio(), FixAudioLength(), ToSTFT(), StretchAudioOnSTFT(), TimeshiftAudioOnSTFT(), FixSTFTDimension()])
-        bg_dataset = BackgroundNoiseDataset(os.path.join(args.data_dir, bkg), data_aug_transform)
-        add_bg_noise = AddBackgroundNoiseOnSTFT(bg_dataset)
-        train_feature_transform = transforms.Compose([ToMelSpectrogramFromSTFT(n_mels=32), DeleteSTFT(), ToTensor('mel_spectrogram', 'input')])
-        train_dataset = SPEECH(args.data_dir, dataset= 'train',
-                                transform=transforms.Compose([LoadAudio(),
-                                        data_aug_transform,
-                                        add_bg_noise,
-                                        train_feature_transform]))
-        valid_feature_transform = transforms.Compose([ToMelSpectrogram(n_mels=32), ToTensor('mel_spectrogram', 'input')])
-        test_dataset = SPEECH(args.data_dir, dataset='test',
-                                transform=transforms.Compose([LoadAudio(),
-                                        FixAudioLength(),
-                                        valid_feature_transform]))
-    elif args.data_set == 'common_voice':
-        from fedscale.core.utils.voice_data_loader import SpectrogramDataset
-        train_dataset = SpectrogramDataset(audio_conf=model.audio_conf,
-                                    data_dir=args.data_dir,
-                                    labels=model.labels,
-                                    train=True,
-                                    normalize=True,
-                                    speed_volume_perturb=args.speed_volume_perturb,
-                                    spec_augment=args.spec_augment,
-                                    data_mapfile=args.data_mapfile)
-        test_dataset = SpectrogramDataset(audio_conf=model.audio_conf,
-                                    data_dir=args.data_dir,
-                                    labels=model.labels,
-                                    train=False,
-                                    normalize=True,
-                                    speed_volume_perturb=False,
-                                    spec_augment=False)
+    if args.data_set == 'twitter':
+        from fedscale.core.utils.twitter.leaf_twitter import LEAF_TWITTER
+        dataset = LEAF_TWITTER(root=args.data_dir,
+                               name='twitter',
+                               s_frac=0.01,
+                               tr_frac=0.8,
+                               val_frac=0.1,
+                               seed=args.sample_seed)
     else:
         logging.info('DataSet must be {}!'.format(['Mnist', 'Cifar', 'openImg', 'blog', 'stackoverflow', 'speech', 'yelp']))
         sys.exit(-1)
 
-    return train_dataset, test_dataset
+    client_num = len(dataset)
+
+    # get local dataset
+    train_data, train_label, test_data, test_label = None, None, None, None
+    train_partitions = []
+    index = 0
+    for client_idx in range(client_num):
+        train_client_data = dataset[client_idx]['train'].Xs
+        train_client_label = dataset[client_idx]['train'].targets
+        if train_data is None:
+            train_data = train_client_data
+            train_label = train_client_label
+        else:
+            train_data = np.concatenate([train_data, train_client_data], axis=0)
+            train_label = np.concatenate([train_label, train_client_label], axis=0)
+        train_partitions += [[_ for _ in range(index, index + len(train_client_data))]]
+        index += len(train_client_data)
+
+        if 'test' in dataset[client_idx]:
+            test_client_data = dataset[client_idx]['test'].Xs
+            test_client_label = dataset[client_idx]['test'].targets
+
+            if test_data is None:
+                test_data = test_client_data
+                test_label = test_client_label
+            else:
+                test_data = np.concatenate([test_data, test_client_data], axis=0)
+                test_label = np.concatenate([test_label, test_client_label], axis=0)
+
+
+    training_sets = LocalDataset(Xs=train_data, targets=train_label)
+    testing_sets = LocalDataset(Xs=test_data, targets=test_label)
+
+    return training_sets, train_partitions, testing_sets, [[_ for _ in range(len(testing_sets))]]
