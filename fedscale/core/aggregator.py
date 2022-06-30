@@ -347,7 +347,7 @@ class Aggregator(job_api_pb2_grpc.JobServiceServicer):
                 self.model_weights[p].data += (trained_samples * (param_weight - self.model_weights[p].data) /
                                                (self.trained_samples_total + trained_samples)).to(
                     self.model_weights[p].data.dtype)
-                self.trained_samples_total += trained_samples
+        self.trained_samples_total += trained_samples
 
     def save_last_param(self):
         if self.args.engine == events.TENSORFLOW:
