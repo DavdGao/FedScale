@@ -8,7 +8,7 @@ ps_ip: 0.0.0.0
 # Note that if we collocate ps and worker on same GPU, then we need to decrease this number of available processes on that GPU by 1
 # E.g., master node has 4 available processes, then 1 for the ps, and worker should be set to: worker:3
 worker_ips:
-    - 0.0.0.0:[0,2,2,2] # worker_ip: [(# processes on gpu) for gpu in available_gpus] eg. 10.0.0.2:[4,4,4,4] This node has 4 gpus, each gpu has 4 processes.
+    - 0.0.0.0:[0,0,7,7] # worker_ip: [(# processes on gpu) for gpu in available_gpus] eg. 10.0.0.2:[4,4,4,4] This node has 4 gpus, each gpu has 4 processes.
 
 
 exp_path: /mnt/gaodawei.gdw/FedScale/fedscale/core
@@ -33,7 +33,7 @@ setup_commands:
 job_conf:
     - log_path: /mnt/gaodawei.gdw/FedScale/evals # Path of log files
     - device_conf_file: /mnt/gaodawei.gdw/FedScale/dataset/data/device_info/client_device_capacity     # Path of the client trace
-    - device_avail_file: /mnt/gaodawei.gdw/FedScale/dataset/data/device_info/client_behave_trace
+#    - device_avail_file: /mnt/gaodawei.gdw/FedScale/dataset/data/device_info/client_behave_trace
 
     - job_name: cifar10                   # Generate logs under this folder: log_path/job_name/time_stamp
     - total_worker: 100                      # Number of participants per round, we use K=100 in our paper, large K will be much slower
