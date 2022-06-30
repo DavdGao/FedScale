@@ -42,7 +42,7 @@ class Client(object):
         optimizer = torch.optim.SGD(model.parameters(), lr=conf.learning_rate)
         criterion = torch.nn.CrossEntropyLoss(reduction='none').to(device=device)
 
-        epoch_train_loss = 1e-4
+        epoch_train_loss = 0
 
         error_type = None
         completed_steps = 0
@@ -58,8 +58,8 @@ class Client(object):
 
                 data = data.to(torch.float32)
 
-                data = move_to(data, device)
-                target = move_to(data, device)
+                data = data.to(device)
+                target = target.to(device)
 
                 output = model(data)
                 loss = criterion(output, target)
@@ -70,11 +70,7 @@ class Client(object):
                 temp_loss = sum(loss_list)/float(len(loss_list))
                 loss_squre = sum([l**2 for l in loss_list])/float(len(loss_list))
                 # only measure the loss of the first epoch
-                if completed_steps < len(client_data):
-                    if epoch_train_loss == 1e-4:
-                        epoch_train_loss = temp_loss
-                    else:
-                        epoch_train_loss = (1. - conf.loss_decay) * epoch_train_loss + conf.loss_decay * temp_loss
+                epoch_train_loss += temp_loss
 
                 # ========= Define the backward loss ==============
                 optimizer.zero_grad()
@@ -98,7 +94,7 @@ class Client(object):
         model_param = {p: state_dicts[p].data.cpu().numpy() for p in state_dicts}
         results = {
             'clientId': clientId,
-            'moving_loss': epoch_train_loss,
+            'moving_loss': epoch_train_loss / completed_steps,
             'trained_size': trained_samples,
             'success': completed_steps > 0
         }

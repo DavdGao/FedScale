@@ -55,8 +55,6 @@ class DataPartitioner(object):
     def use(self, partition, istest):
         resultIndex = self.partitions[partition]
 
-        exeuteLength = len(resultIndex) if not istest else int(len(resultIndex) * self.args.test_ratio)
-        resultIndex = resultIndex[:exeuteLength]
         self.rng.shuffle(resultIndex)
 
         return Partition(self.data, resultIndex)
