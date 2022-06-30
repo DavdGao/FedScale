@@ -32,10 +32,10 @@ class clientManager(object):
         self.user_trace = None
         self.args = args
 
-        if args.device_avail_file is not None:
-            with open(args.device_avail_file, 'rb') as fin:
-                self.user_trace = pickle.load(fin)
-            self.user_trace_keys = list(self.user_trace.keys())
+        # if args.device_avail_file is not None:
+        #     with open(args.device_avail_file, 'rb') as fin:
+        #         self.user_trace = pickle.load(fin)
+        #     self.user_trace_keys = list(self.user_trace.keys())
 
     def registerClient(self, hostId, clientId, size, speed, duration=1):
 
