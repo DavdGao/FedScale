@@ -146,7 +146,7 @@ def init_dataset():
                 test_label = np.concatenate([test_label, test_client_label], axis=0)
 
 
-    training_sets = LocalDataset(Xs=train_data, targets=train_label)
-    testing_sets = LocalDataset(Xs=test_data, targets=test_label)
+    training_sets = LocalDataset(Xs=train_data, targets=train_label, transform=dataset._to_bag_of_word)
+    testing_sets = LocalDataset(Xs=test_data, targets=test_label, transform=dataset._to_bag_of_word)
 
     return training_sets, train_partitions, testing_sets, [[_ for _ in range(len(testing_sets))]]
