@@ -8,7 +8,7 @@ ps_ip: 0.0.0.0
 # Note that if we collocate ps and worker on same GPU, then we need to decrease this number of available processes on that GPU by 1
 # E.g., master node has 4 available processes, then 1 for the ps, and worker should be set to: worker:3
 worker_ips:
-    - 0.0.0.0:[8] # worker_ip: [(# processes on gpu) for gpu in available_gpus] eg. 10.0.0.2:[4,4,4,4] This node has 4 gpus, each gpu has 4 processes.
+    - 0.0.0.0:[8,8] # worker_ip: [(# processes on gpu) for gpu in available_gpus] eg. 10.0.0.2:[4,4,4,4] This node has 4 gpus, each gpu has 4 processes.
 
 
 exp_path: /mnt/gaodawei.gdw/FedScale/fedscale/core
@@ -37,7 +37,7 @@ job_conf:
     - data_set: twitter                     # Dataset: openImg, google_speech, stackoverflow
     - data_dir: /mnt/gaodawei.gdw/FedScale/dataset/data/    # Path of the dataset
     - device_conf_file: /mnt/gaodawei.gdw/FedScale/dataset/data/device_info/client_device_capacity     # Path of the client trace
-    - device_avail_file: /mnt/gaodawei.gdw/FedScale/dataset/data/device_info/client_behave_trace
+#    - device_avail_file: /mnt/gaodawei.gdw/FedScale/dataset/data/device_info/client_behave_trace
     - model: lr                            # Models: e.g., shufflenet_v2_x2_0, mobilenet_v2, resnet34, albert-base-v2
     - gradient_policy: fed-avg                 # {"fed-yogi", "fed-prox", "fed-avg"}, "fed-avg" by default
     - eval_interval: 2                     # How many rounds to run a testing on the testing set
