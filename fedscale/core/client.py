@@ -52,50 +52,45 @@ class Client(object):
 
         # TODO: One may hope to run fixed number of epochs, instead of iterations
         while completed_steps < conf.local_steps:
-            
-            try:
-                for data_pair in client_data:
-                    (data, target) = data_pair
 
-                    data = move_to(data, device)
-                    target = move_to(data, device)
+            for data_pair in client_data:
+                (data, target) = data_pair
 
-                    output = model(data)
-                    loss = criterion(output, target)
+                data = move_to(data, device)
+                target = move_to(data, device)
 
-                    loss_list = loss.tolist()
-                    loss = loss.mean()
+                output = model(data)
+                loss = criterion(output, target)
 
-                    temp_loss = sum(loss_list)/float(len(loss_list))
-                    loss_squre = sum([l**2 for l in loss_list])/float(len(loss_list))
-                    # only measure the loss of the first epoch
-                    if completed_steps < len(client_data):
-                        if epoch_train_loss == 1e-4:
-                            epoch_train_loss = temp_loss
-                        else:
-                            epoch_train_loss = (1. - conf.loss_decay) * epoch_train_loss + conf.loss_decay * temp_loss
+                loss_list = loss.tolist()
+                loss = loss.mean()
 
-                    # ========= Define the backward loss ==============
-                    optimizer.zero_grad()
-                    loss.backward()
+                temp_loss = sum(loss_list)/float(len(loss_list))
+                loss_squre = sum([l**2 for l in loss_list])/float(len(loss_list))
+                # only measure the loss of the first epoch
+                if completed_steps < len(client_data):
+                    if epoch_train_loss == 1e-4:
+                        epoch_train_loss = temp_loss
+                    else:
+                        epoch_train_loss = (1. - conf.loss_decay) * epoch_train_loss + conf.loss_decay * temp_loss
 
-                    # torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
+                # ========= Define the backward loss ==============
+                optimizer.zero_grad()
+                loss.backward()
 
-                    optimizer.step()
+                # torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
 
-                    # ========= Weight handler ========================
-                    self.optimizer.update_client_weight(conf, model, global_model if global_model is not None else None  )
+                optimizer.step()
 
-                    trained_samples += len(target)
+                # ========= Weight handler ========================
+                self.optimizer.update_client_weight(conf, model, global_model if global_model is not None else None  )
 
-                    completed_steps += 1
+                trained_samples += len(target)
 
-                    if completed_steps >= conf.local_steps:
-                        break
+                completed_steps += 1
 
-            except Exception as ex:
-                error_type = ex
-                break
+                if completed_steps >= conf.local_steps:
+                    break
         
         state_dicts = model.state_dict()
         model_param = {p: state_dicts[p].data.cpu().numpy() for p in state_dicts}
