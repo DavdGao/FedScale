@@ -56,6 +56,8 @@ class Client(object):
             for data_pair in client_data:
                 (data, target) = data_pair
 
+                data = data.to(torch.float32)
+
                 data = move_to(data, device)
                 target = move_to(data, device)
 
