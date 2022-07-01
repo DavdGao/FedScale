@@ -92,9 +92,10 @@ class Executor(object):
 
         if args.data_set == "cifar10":
             # For Cifar-10
-            train_val_dataset, test_dataset = init_dataset()
-            train_dataset = torch.utils.data.Subset(train_val_dataset, sorted(np.random.choice(np.arange(len(train_val_dataset)), size=40000, replace=False)))
+            train_dataset, test_dataset = init_dataset()
+            # train_dataset = torch.utils.data.Subset(train_val_dataset, sorted(np.random.choice(np.arange(len(train_val_dataset)), size=40000, replace=False)))
             train_dataset.targets = [y for _, y in train_dataset]
+            test_dataset.targets = [y for _, y in test_dataset]
 
             # load data partitioner (entire_train_data)
             training_sets = DataPartitioner(data=train_dataset, args=self.args, numOfClass=self.args.num_class)
