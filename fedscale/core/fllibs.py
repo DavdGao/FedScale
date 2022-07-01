@@ -193,7 +193,7 @@ def init_dataset():
 
     elif args.data_set == 'cifar10':
         train_transform, test_transform = get_data_transform('cifar')
-        train_dataset = datasets.CIFAR10(args.data_dir, train=True, download=False,
+        train_dataset = datasets.CIFAR10(args.data_dir, train=True, download=True,
                                         transform=train_transform)
         # split 40000 data as training dataset
         train_dataset = torch.utils.data.Subset(
@@ -204,7 +204,7 @@ def init_dataset():
                 replace=False)
         )
 
-        test_dataset = datasets.CIFAR10(args.data_dir, train=False, download=False,
+        test_dataset = datasets.CIFAR10(args.data_dir, train=False, download=True,
                                         transform=test_transform)
 
     elif args.data_set == "imagenet":
